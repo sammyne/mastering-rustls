@@ -1,12 +1,6 @@
 #!/bin/bash
 
-sed -i '' 's/PRIVATE KEY/RSA PRIVATE KEY/g' ca.key
-
-
-cat ca.cert > hello.cert
-cat server.cert >> hello.cert
-
 cp server.key ../server/
-cp server.cert ../server/server.cert
+cp server.cert ../server/
 
-cp ca.cert ../client/ca.cert
+cp ca.cert ../client/
