@@ -20,7 +20,7 @@ fn new_config(cert_path: &str) -> Result<Arc<rustls::ClientConfig>, String> {
 }
 
 fn main() {
-    const CA_PATH: &str = "./server.crt";
+    const CA_PATH: &str = "./ca.cert";
 
     let config = new_config(CA_PATH).unwrap();
     let domain_name = webpki::DNSNameRef::try_from_ascii_str("localhost").unwrap();
@@ -29,16 +29,13 @@ fn main() {
     let mut socket = TcpStream::connect("localhost:4433").unwrap();
 
     let mut client = rustls::Stream::new(&mut session, &mut socket);
-    println!("one");
     client.write(b"hello world").unwrap();
+    client.flush().unwrap();
 
     let ciphersuite = client.sess.get_negotiated_ciphersuite().unwrap();
-    println!("2");
     println!("Current ciphersuite: {:?}", ciphersuite.suite);
 
     let mut plaintext = Vec::new();
-    println!("3");
     client.read_to_end(&mut plaintext).unwrap();
-    println!("4");
     io::stdout().write_all(&plaintext).unwrap();
 }
