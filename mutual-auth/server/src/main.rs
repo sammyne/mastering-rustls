@@ -40,15 +40,23 @@ fn read_private_key(path: &str) -> Result<rustls::PrivateKey, String> {
 }
 
 fn main() {
-    const CERT_PATH: &str = "../../pki/server.cert";
+    const CA_CERT_PATH: &str = "../../pki/ca.cert";
+    const SERVER_CERT_PATH: &str = "../../pki/server.cert";
     const KEY_PATH: &str = "../../pki/server.key";
 
-    let certs = read_certs(CERT_PATH).unwrap();
+    let ca_certs = read_certs(CA_CERT_PATH).unwrap();
+    let server_certs = read_certs(SERVER_CERT_PATH).unwrap();
     let key = read_private_key(KEY_PATH).unwrap();
 
     let config = {
-        let mut c = rustls::ServerConfig::new(rustls::NoClientAuth::new());
-        c.set_single_cert(certs, key).unwrap();
+        let mut store = rustls::RootCertStore::empty();
+        store.add(&ca_certs[0]).unwrap();
+
+        // Build a default authenticator which allow every authenticated client
+        let authenticator = rustls::AllowAnyAuthenticatedClient::new(store);
+
+        let mut c = rustls::ServerConfig::new(authenticator);
+        c.set_single_cert(server_certs, key).unwrap();
         Arc::new(c)
     };
 

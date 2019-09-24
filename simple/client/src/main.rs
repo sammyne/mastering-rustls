@@ -20,7 +20,7 @@ fn new_config(cert_path: &str) -> Result<Arc<rustls::ClientConfig>, String> {
 }
 
 fn main() {
-    const CA_PATH: &str = "./ca.cert";
+    const CA_PATH: &str = "../../pki/ca.cert";
 
     let config = new_config(CA_PATH).unwrap();
     let domain_name = webpki::DNSNameRef::try_from_ascii_str("localhost").unwrap();

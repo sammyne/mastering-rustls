@@ -1,9 +1,9 @@
 use std::fs;
 use std::io::{self, Read, Write};
-use std::net::{self, TcpListener};
+use std::net::TcpStream;
 use std::sync::Arc;
 
-use rustls;
+use rustls::{self, Session};
 
 fn read_certs(path: &str) -> Result<Vec<rustls::Certificate>, String> {
     let data = match fs::File::open(path) {
@@ -40,33 +40,34 @@ fn read_private_key(path: &str) -> Result<rustls::PrivateKey, String> {
 }
 
 fn main() {
-    const CERT_PATH: &str = "../../pki/server.cert";
-    const KEY_PATH: &str = "../../pki/server.key";
+    const CA_CERT_PATH: &str = "../../pki/ca.cert";
+    const CLIENT_CERT_PATH: &str = "../../pki/client.cert";
+    const KEY_PATH: &str = "../../pki/client.key";
 
-    let certs = read_certs(CERT_PATH).unwrap();
+    let ca_certs = read_certs(CA_CERT_PATH).unwrap();
+    let client_certs = read_certs(CLIENT_CERT_PATH).unwrap();
     let key = read_private_key(KEY_PATH).unwrap();
 
     let config = {
-        let mut c = rustls::ServerConfig::new(rustls::NoClientAuth::new());
-        c.set_single_cert(certs, key).unwrap();
+        let mut c = rustls::ClientConfig::new();
+        c.root_store.add(&ca_certs[0]).unwrap();
+        c.set_single_client_cert(client_certs, key);
         Arc::new(c)
     };
 
-    let addr: net::SocketAddr = "0.0.0.0:4433".parse().unwrap();
-    let listener = TcpListener::bind(&addr).unwrap();
+    let domain_name = webpki::DNSNameRef::try_from_ascii_str("localhost").unwrap();
 
-    for stream in listener.incoming().take(1) {
-        let mut socket = stream.unwrap();
-        let mut session = rustls::ServerSession::new(&config);
+    let mut session = rustls::ClientSession::new(&config, domain_name);
+    let mut socket = TcpStream::connect("localhost:4433").unwrap();
 
-        let mut tls_stream = rustls::Stream::new(&mut session, &mut socket);
+    let mut client = rustls::Stream::new(&mut session, &mut socket);
+    client.write(b"hello world").unwrap();
+    client.flush().unwrap();
 
-        let mut plaintext = [0; 128];
-        tls_stream.read(&mut plaintext).unwrap();
+    let ciphersuite = client.sess.get_negotiated_ciphersuite().unwrap();
+    println!("Current ciphersuite: {:?}", ciphersuite.suite);
 
-        io::stdout().write_all(&plaintext).unwrap();
-
-        tls_stream.write(b"OK from server\r\n").unwrap();
-        tls_stream.flush().unwrap();
-    }
+    let mut plaintext = Vec::new();
+    client.read_to_end(&mut plaintext).unwrap();
+    io::stdout().write_all(&plaintext).unwrap();
 }
