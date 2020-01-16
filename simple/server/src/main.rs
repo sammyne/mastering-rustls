@@ -32,6 +32,7 @@ fn read_private_key(path: &str) -> Result<rustls::PrivateKey, String> {
     let mut reader = io::BufReader::new(key_pem);
 
     let keys = match rustls::internal::pemfile::rsa_private_keys(&mut reader) {
+        //let keys = match rustls::internal::pemfile::pkcs8_private_keys(&mut reader) {
         Ok(keys) => keys,
         Err(_) => return Err("failed to read key".to_string()),
     };
